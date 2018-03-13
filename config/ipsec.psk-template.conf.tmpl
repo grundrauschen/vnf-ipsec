@@ -38,6 +38,25 @@ conn sts-base
 	ikelifetime={{getv "/ikelifetime" "10800"}}
 	reauth={{getv "/ikereauth" "yes"}}
 
+{{ if exists "/configs" }}
+{{ range gets "/configs/*" }}
+conn site-static-ip-{{ .Key }}
+	also=sts-base
+	keyexchange={{ .Value.keyexchange }}
+	leftsubnet={{ .Value.localnet }}
+	left={{ .Value.localip }}
+	leftid={{ .Value.localid }}
+	rightsubnet={{ .Value.remotenet }}
+	right={{ .Value.remoteip }}
+	rightid={{ .Value.remoteid }}
+	auto=route
+	leftauth=psk
+	rightauth=psk
+	{{if exists .Value.vti.key -}}
+	mark={{ .Value.vti.key }}
+	{{- end}}
+{{- end }}
+{{ else }}
 conn site-static-ip
 	also=sts-base
 	keyexchange={{getv "/keyexchange"}}
@@ -53,3 +72,4 @@ conn site-static-ip
 	{{if exists "/vti/key" -}}
 	mark={{getv "/vti/key"}}
 	{{- end}}
+{{- end }}

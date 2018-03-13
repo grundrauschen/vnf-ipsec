@@ -16,5 +16,6 @@ keys = [
     "/vti_key",
     "/lifetime",
     "/ikelifetime",
-    "/ikereauth"
+    "/ikereauth",
+    "/configs"
 ]

@@ -1,18 +1,26 @@
 #!/bin/sh
 set -eo pipefail
 
-_initialize() {
+_initialize_single() {
     echo "Start: run initializations."
-    _create_vti
+    _create_vti ""
     echo "End: run initializations."
 }
+
+_initialize_multi() {
+    for i in $(seq $IPSEC_NUMCONF);
+    do
+        _create_vti "CONFIGS_${i}_"
+    done
+}
+
 
 _create_vti(){
 
 # set charon.install_virtual_ip = no to prevent the daemon from also installing the VIP
 
-    if [ -n "$IPSEC_VTI_KEY" ]; then
-        echo "IPSEC_VTI_KEY set, creating VTI interface."
+eval    if [ -n "\$IPSEC_${1}VTI_KEY" ]; then
+eval        echo "IPSEC_VTI_KEY set, creating VTI interface."
         set -e
 
         echo "Start: load ip_vti kernel module."
@@ -24,24 +32,24 @@ _create_vti(){
         fi
         echo "End: load ip_vti kernel module."
 
-        VTI_IF="vti${IPSEC_VTI_KEY}"
+eval        VTI_IF="vti${IPSEC_VTI_KEY}"
 
-        ip tunnel add "${VTI_IF}" remote ${IPSEC_REMOTEIP} mode vti key ${IPSEC_VTI_KEY} || true
+eval        ip tunnel add "${VTI_IF}" remote ${IPSEC_REMOTEIP} mode vti key ${IPSEC_VTI_KEY} || true
         ip link set "${VTI_IF}" up
 
         # add routes through the VTI interface
-        if [ -n "$IPSEC_VTI_STATICROUTES" ]; then
+eval        if [ -n "\$IPSEC_${1}VTI_STATICROUTES" ]; then
             IFS=","
-            for route in ${IPSEC_VTI_STATICROUTES}; do
+eval            for route in \${IPSEC_${1}VTI_STATICROUTES}; do
                 ip route add ${route} dev "${VTI_IF}" || true
             done
             unset IFS
         fi
 
         # vti interface address configuration
-        if [ -n "$IPSEC_VTI_IPADDR_LOCAL" -a -n "$IPSEC_VTI_IPADDR_PEER" ]; then
-            echo "Configuring local/peer ($IPSEC_VTI_IPADDR_LOCAL/$IPSEC_VTI_IPADDR_PEER) addresses on $VTI_IF."
-            ip addr add $IPSEC_VTI_IPADDR_LOCAL peer $IPSEC_VTI_IPADDR_PEER dev $VTI_IF
+eval        if [ -n "\$IPSEC_${1}VTI_IPADDR_LOCAL" -a -n "\$IPSEC_${1}VTI_IPADDR_PEER" ]; then
+eval            echo "Configuring local/peer (\$IPSEC_${1}VTI_IPADDR_LOCAL/\$IPSEC_${1}VTI_IPADDR_PEER) addresses on $VTI_IF."
+eval            ip addr add \$IPSEC_${1}VTI_IPADDR_LOCAL peer \$IPSEC_${1}VTI_IPADDR_PEER dev $VTI_IF
         fi
 
         echo "Setting net.ipv4.conf.${VTI_IF}.disable_policy=1"
@@ -98,58 +106,92 @@ _term() {
     exit 0
 }
 
+_set_default_variables_single() {
+    _set_default_variables ""
+}
+
+_set_default_variables_multi() {
+    for i in $(seq $IPSEC_NUMCONF);
+    do
+        eval export IPSEC_${i}_NUM=${i}
+        _set_default_variables "CONFIGS_${i}_"
+    done
+}
+
 _set_default_variables() {
     # local and remote IP can not be "%any" if VTI needs to be created
-    if [ -z "$IPSEC_VTI_KEY" ]; then
-        export IPSEC_LOCALIP=${IPSEC_LOCALIP:-%any}
+eval    if [ -z "\$IPSEC_${1}VTI_KEY" ]; then
+eval        export IPSEC_${1}LOCALIP=\${IPSEC_${1}LOCALIP:-%any}
     fi
-    export IPSEC_REMOTEIP=${IPSEC_REMOTEIP:-%any}
-    export IPSEC_KEYEXCHANGE=${IPSEC_KEYEXCHANGE:-ikev2}
-    export IPSEC_ESPCIPHER=${IPSEC_ESPCIPHER:-aes192gcm16-aes128gcm16-ecp256,aes192-sha256-modp3072}
-    export IPSEC_IKECIPHER=${IPSEC_IKECIPHER:-aes192gcm16-aes128gcm16-prfsha256-ecp256-ecp521,aes192-sha256-modp3072}
+eval    export IPSEC_${1}REMOTEIP=\${IPSEC_${1}REMOTEIP:-%any}
+eval    export IPSEC_${1}KEYEXCHANGE=\${IPSEC_${1}KEYEXCHANGE:-ikev2}
+eval    export IPSEC_${1}ESPCIPHER=\${IPSEC_${1}ESPCIPHER:-aes192gcm16-aes128gcm16-ecp256,aes192-sha256-modp3072}
+eval    export IPSEC_${1}IKECIPHER=\${IPSEC_${1}IKECIPHER:-aes192gcm16-aes128gcm16-prfsha256-ecp256-ecp521,aes192-sha256-modp3072}
     return 0
 }
 
+_check_variables_single() {
+    _check_variables ""
+}
+
+_check_variables_multi() {
+    for i in $(seq $IPSEC_NUMCONF);
+    do
+        _check_default_variables "CONFIGS_${i}_"
+    done
+}
+
+
 _check_variables() {
   # we only need two varaiables for init-containers
-  if [ -n "$IPSEC_VTI_KEY" ]; then
-      [ -z "$IPSEC_REMOTEIP" ] && { echo "Need to set IPSEC_REMOTEIP"; exit 1; }
-      [ -z "$IPSEC_REMOTENET" ] && { echo "Need to set IPSEC_REMOTENET"; exit 1; }
+eval  if [ -n "\$IPSEC_${1}VTI_KEY" ]; then
+eval      [ -z "\$IPSEC_${1}REMOTEIP" ] && { echo "Need to set IPSEC_${1}REMOTEIP"; exit 1; }
+eval      [ -z "\$IPSEC_${1}REMOTENET" ] && { echo "Need to set IPSEC_${1}REMOTENET"; exit 1; }
   else
-      [ -z "$IPSEC_LOCALNET" ] && { echo "Need to set IPSEC_LOCALNET"; exit 1; }
-      [ -z "$IPSEC_PSK" ] && { echo "Need to set IPSEC_PSK"; exit 1; }
-      [ -z "$IPSEC_REMOTEIP" ] && { echo "Need to set IPSEC_REMOTEIP"; exit 1; }
-      [ -z "$IPSEC_REMOTEID" ] && { echo "Need to set IPSEC_REMOTEID"; exit 1; }
-      [ -z "$IPSEC_LOCALIP" ] && { echo "Need to set IPSEC_LOCALIP"; exit 1; }
-      [ -z "$IPSEC_LOCALID" ] && { echo "Need to set IPSEC_LOCALID"; exit 1; }
-      [ -z "$IPSEC_REMOTENET" ] && { echo "Need to set IPSEC_REMOTENET"; exit 1; }
-      [ -z "$IPSEC_KEYEXCHANGE" ] && { echo "Need to set IPSEC_KEYEXCHANGE"; exit 1; }
-      [ -z "$IPSEC_ESPCIPHER" ] && { echo "Need to set IPSEC_ESPCIPHER"; exit 1; }
-      [ -z "$IPSEC_IKECIPHER" ] && { echo "Need to set IPSEC_IKECIPHER"; exit 1; }
+eval      [ -z "$\IPSEC_${1}LOCALNET" ] && { echo "Need to set IPSEC_${1}LOCALNET"; exit 1; }
+eval      [ -z "$\IPSEC_${1}PSK" ] && { echo "Need to set IPSEC_${1}PSK"; exit 1; }
+eval      [ -z "$\IPSEC_${1}REMOTEIP" ] && { echo "Need to set IPSEC_${1}REMOTEIP"; exit 1; }
+eval      [ -z "$\IPSEC_${1}REMOTEID" ] && { echo "Need to set IPSEC_${1}REMOTEID"; exit 1; }
+eval      [ -z "$\IPSEC_${1}LOCALIP" ] && { echo "Need to set IPSEC_${1}LOCALIP"; exit 1; }
+eval      [ -z "$\IPSEC_${1}LOCALID" ] && { echo "Need to set IPSEC_${1}LOCALID"; exit 1; }
+eval      [ -z "$\IPSEC_${1}REMOTENET" ] && { echo "Need to set IPSEC_${1}REMOTENET"; exit 1; }
+eval      [ -z "$\IPSEC_${1}KEYEXCHANGE" ] && { echo "Need to set IPSEC_${1}KEYEXCHANGE"; exit 1; }
+eval      [ -z "$\IPSEC_${1}ESPCIPHER" ] && { echo "Need to set IPSEC_${1}ESPCIPHER"; exit 1; }
+eval      [ -z "$\IPSEC_${1}IKECIPHER" ] && { echo "Need to set IPSEC_${1}IKECIPHER"; exit 1; }
   fi
-  if [ -n "$IPSEC_VTI_IPADDR_PEER" -a -z "$IPSEC_VTI_IPADDR_LOCAL" ]; then
-      echo "IPSEC_VTI_IPADDR_PEER cannot be used without IPSEC_VTI_IPADDR_LOCAL."
+eval  if [ -n "$IPSEC_${1}VTI_IPADDR_PEER" -a -z "$IPSEC_${1}VTI_IPADDR_LOCAL" ]; then
+eval      echo "IPSEC_${1}VTI_IPADDR_PEER cannot be used without IPSEC_${1}VTI_IPADDR_LOCAL."
       exit 1
   fi
   return 0
 }
 
+_print_variables_single() {
+    _print_variables ""
+}
+
+_print_variables_multi() {
+    for i in $(seq $IPSEC_NUMCONF);
+    do
+        _print_variables_multi "CONFIGS_${i}_"
+    done
+
 _print_variables() {
     echo "======= set variables ======="
-    printf "IPSEC_LOCALNET=%s\n" $IPSEC_LOCALNET
-    printf "IPSEC_LOCALIP=%s\n" $IPSEC_LOCALIP
-    printf "IPSEC_LOCALID=%s\n" $IPSEC_LOCALID
-    printf "IPSEC_REMOTEID=%s\n" $IPSEC_REMOTEID
-    printf "IPSEC_REMOTEIP=%s\n" $IPSEC_REMOTEIP
-    printf "IPSEC_REMOTENET=%s\n" $IPSEC_REMOTENET
-    printf "IPSEC_PSK=%s\n" $IPSEC_PSK
-    printf "IPSEC_KEYEXCHANGE=%s\n" $IPSEC_KEYEXCHANGE
-    printf "IPSEC_ESPCIPHER=%s\n" $IPSEC_ESPCIPHER
-    printf "IPSEC_IKECIPHER=%s\n" $IPSEC_IKECIPHER
-    printf "IPSEC_VTI_KEY=%s\n" $IPSEC_VTI_KEY
-    printf "IPSEC_VTI_STATICROUTES=%s\n" $IPSEC_VTI_STATICROUTES
-    printf "IPSEC_VTI_IPADDR_LOCAL=%s\n" $IPSEC_VTI_IPADDR_LOCAL
-    printf "IPSEC_VTI_IPADDR_PEER=%s\n" $IPSEC_VTI_IPADDR_PEER
+    eval printf "IPSEC_LOCALNET=%s\n" \$IPSEC_${1}LOCALNET
+    eval printf "IPSEC_LOCALIP=%s\n" \$IPSEC_${1}LOCALIP
+    eval printf "IPSEC_LOCALID=%s\n" \$IPSEC_${1}LOCALID
+    eval printf "IPSEC_REMOTEID=%s\n" \$IPSEC_${1}REMOTEID
+    eval printf "IPSEC_REMOTEIP=%s\n" \$IPSEC_${1}REMOTEIP
+    eval printf "IPSEC_REMOTENET=%s\n" \$IPSEC_${1}REMOTENET
+    eval printf "IPSEC_PSK=%s\n" \$IPSEC_${1}PSK
+    eval printf "IPSEC_KEYEXCHANGE=%s\n" \$IPSEC_${1}KEYEXCHANGE
+    eval printf "IPSEC_ESPCIPHER=%s\n" \$IPSEC_${1}ESPCIPHER
+    eval printf "IPSEC_IKECIPHER=%s\n" \$IPSEC_${1}IKECIPHER
+    eval printf "IPSEC_VTI_KEY=%s\n" \$IPSEC_${1}VTI_KEY
+    eval printf "IPSEC_VTI_STATICROUTES=%s\n" \$IPSEC_${1}VTI_STATICROUTES
+    eval printf "IPSEC_VTI_IPADDR_LOCAL=%s\n" \$IPSEC_${1}VTI_IPADDR_LOCAL
+    eval printf "IPSEC_VTI_IPADDR_PEER=%s\n" \$IPSEC_${1}VTI_IPADDR_PEER
     return 0
 }
 
@@ -158,24 +200,50 @@ trap _term TERM INT
 # hook to initialize environment by file
 [ -r "$ENVFILE" ] && . $ENVFILE
 
-_set_default_variables
-_check_variables
+if [ -z "$IPSEC_MULTICONF" ]; then
+    _set_default_variables_multi
+    _check_variables_multi
 
-_print_variables
+    _print_variables_multi
 
-if [ "$1" = "init" ]; then
-    _initialize
-    exit 0
+else
+
+    _set_default_variables_single
+    _check_variables_single
+
+    _print_variables_single
 fi
-
 _config
 
-if  [ "$SET_ROUTE_DEFAULT_TABLE" = "TRUE" ]
+if [ "$1" != "show-config" ]
 then
-    _add_route
+
+    if [ -z "$IPSEC_MULTICONF" ]
+    then
+        if [ "$1" = "init" ]; then
+            _initialize_multi
+            exit 0
+        fi
+    else
+        if [ "$1" = "init" ]; then
+            _initialize_single
+            exit 0
+        fi
+    fi
+
+    if  [ "$SET_ROUTE_DEFAULT_TABLE" = "TRUE" ]
+    then
+        if [ -z "$IPSEC_MULTICONF" ]
+        then
+            echo "SETUP of default route table not supported in multi config mode"
+        else
+            _add_route
+        fi
+    fi
+
+    _start_strongswan
+
+    _term
+else
+    exit 0
 fi
-
-_start_strongswan
-
-_term
-
