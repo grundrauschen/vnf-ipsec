@@ -73,7 +73,7 @@ _config() {
     cp /etc/confd/conf.d.disabled/charon.* /etc/confd/conf.d
 
     confd -onetime -backend env
-    if [ -n "$DEBUG" ]
+    if [ -n "$DEBUG" -o "$1" = "show-config" ]
     then
         echo "======= Config ======="
         cat /etc/ipsec.config.d/*.conf
@@ -125,10 +125,7 @@ _set_default_variables_multi() {
 
 _set_default_variables() {
     # local and remote IP can not be "%any" if VTI needs to be created
-    eval VTI_KEY=\$IPSEC_${1}VTI_KEY
-    if [ -z "$VTI_KEY" ]; then
-eval        export IPSEC_${1}LOCALIP=\${IPSEC_${1}LOCALIP:-%any}
-    fi
+eval    export IPSEC_${1}LOCALIP=\${IPSEC_${1}LOCALIP:-%any}
 eval    export IPSEC_${1}REMOTEIP=\${IPSEC_${1}REMOTEIP:-%any}
 eval    export IPSEC_${1}FORCEUDP=\${IPSEC_${1}FORCEUDP:-yes}
 eval    export IPSEC_${1}LIFETIME=\${IPSEC_${1}LIFETIME:-3600}
@@ -147,7 +144,7 @@ _check_variables_single() {
 _check_variables_multi() {
     for i in $(seq $IPSEC_NUMCONF);
     do
-        _check_default_variables "CONFIGS_${i}_"
+        _check_variables "CONFIGS_${i}_"
     done
 }
 
@@ -155,20 +152,23 @@ _check_variables_multi() {
 _check_variables() {
   # we only need two varaiables for init-containers
     eval VTI_KEY=\$IPSEC_${1}VTI_KEY
+    set +e
     if [ -n "$VTI_KEY" ]; then
-eval      [ -z "\$IPSEC_${1}REMOTEIP" ] && { echo "Need to set IPSEC_${1}REMOTEIP"; exit 1; }
-eval      [ -z "\$IPSEC_${1}REMOTENET" ] && { echo "Need to set IPSEC_${1}REMOTENET"; exit 1; }
-  else
-eval      [ -z "$\IPSEC_${1}LOCALNET" ] && { echo "Need to set IPSEC_${1}LOCALNET"; exit 1; }
-eval      [ -z "$\IPSEC_${1}PSK" ] && { echo "Need to set IPSEC_${1}PSK"; exit 1; }
-eval      [ -z "$\IPSEC_${1}REMOTEIP" ] && { echo "Need to set IPSEC_${1}REMOTEIP"; exit 1; }
-eval      [ -z "$\IPSEC_${1}REMOTEID" ] && { echo "Need to set IPSEC_${1}REMOTEID"; exit 1; }
-eval      [ -z "$\IPSEC_${1}LOCALIP" ] && { echo "Need to set IPSEC_${1}LOCALIP"; exit 1; }
-eval      [ -z "$\IPSEC_${1}LOCALID" ] && { echo "Need to set IPSEC_${1}LOCALID"; exit 1; }
-eval      [ -z "$\IPSEC_${1}REMOTENET" ] && { echo "Need to set IPSEC_${1}REMOTENET"; exit 1; }
-eval      [ -z "$\IPSEC_${1}KEYEXCHANGE" ] && { echo "Need to set IPSEC_${1}KEYEXCHANGE"; exit 1; }
-eval      [ -z "$\IPSEC_${1}ESPCIPHER" ] && { echo "Need to set IPSEC_${1}ESPCIPHER"; exit 1; }
-eval      [ -z "$\IPSEC_${1}IKECIPHER" ] && { echo "Need to set IPSEC_${1}IKECIPHER"; exit 1; }
+        eval "[ -z "\$IPSEC_${1}REMOTEIP" ] && { echo "Need to set IPSEC_${1}REMOTEIP"; exit 1; }"
+        eval "[ -z "\$IPSEC_${1}REMOTENET" ] && { echo "Need to set IPSEC_${1}REMOTENET"; exit 1; }"
+        eval "[ -z "$\IPSEC_${1}REMOTEID" ] && { echo "Need to set IPSEC_${1}REMOTEID"; exit 1; }   "
+        eval "[ -z "$\IPSEC_${1}LOCALID" ] && { echo "Need to set IPSEC_${1}LOCALID"; exit 1; }     "
+    else
+        eval "[ -z "$\IPSEC_${1}LOCALNET" ] && { echo "Need to set IPSEC_${1}LOCALNET"; exit 1; }  "
+        eval "[ -z "$\IPSEC_${1}PSK" ] && { echo "Need to set IPSEC_${1}PSK"; exit 1; }             "
+        eval "[ -z "$\IPSEC_${1}REMOTEIP" ] && { echo "Need to set IPSEC_${1}REMOTEIP"; exit 1; }   "
+        eval "[ -z "$\IPSEC_${1}REMOTEID" ] && { echo "Need to set IPSEC_${1}REMOTEID"; exit 1; }   "
+        eval "[ -z "$\IPSEC_${1}LOCALIP" ] && { echo "Need to set IPSEC_${1}LOCALIP"; exit 1; }     "
+        eval "[ -z "$\IPSEC_${1}LOCALID" ] && { echo "Need to set IPSEC_${1}LOCALID"; exit 1; }     "
+        eval "[ -z "$\IPSEC_${1}REMOTENET" ] && { echo "Need to set IPSEC_${1}REMOTENET"; exit 1; } "
+        eval "[ -z "$\IPSEC_${1}KEYEXCHANGE" ] && { echo "Need to set IPSEC_${1}KEYEXCHANGE"; exit 1; }"
+        eval "[ -z "$\IPSEC_${1}ESPCIPHER" ] && { echo "Need to set IPSEC_${1}ESPCIPHER"; exit 1; } "
+        eval "[ -z "$\IPSEC_${1}IKECIPHER" ] && { echo "Need to set IPSEC_${1}IKECIPHER"; exit 1; } "
     fi
     eval VTI_PEER=\$IPSEC_${1}VTI_IPADDR_PEER
     eval VTI_LOCAL=\$IPSEC_${1}VTI_IPADDR_LOCAL
@@ -176,6 +176,7 @@ eval      [ -z "$\IPSEC_${1}IKECIPHER" ] && { echo "Need to set IPSEC_${1}IKECIP
 eval      echo "IPSEC_${1}VTI_IPADDR_PEER cannot be used without IPSEC_${1}VTI_IPADDR_LOCAL."
       exit 1
   fi
+  set -e
   return 0
 }
 
@@ -186,7 +187,7 @@ _print_variables_single() {
 _print_variables_multi() {
     for i in $(seq $IPSEC_NUMCONF);
     do
-        _print_variables_multi "CONFIGS_${i}_"
+        _print_variables "CONFIGS_${i}_"
     done
 }
 
@@ -214,7 +215,7 @@ trap _term TERM INT
 # hook to initialize environment by file
 [ -r "$ENVFILE" ] && . $ENVFILE
 
-if [ -z "$IPSEC_MULTICONF" ]; then
+if [ -n "$IPSEC_MULTICONF" ]; then
     _set_default_variables_multi
     _check_variables_multi
 
@@ -227,7 +228,7 @@ else
 
     _print_variables_single
 fi
-_config
+_config $1
 
 if [ "$1" != "show-config" ]
 then
