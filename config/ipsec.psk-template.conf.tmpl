@@ -27,21 +27,19 @@ config setup
 #      rightid="C=CH, O=Linux strongSwan CN=peer name"
 #      auto=start
 
-conn sts-base
-	fragmentation=yes
-	dpdaction=restart
-	ike={{getv "/ikecipher"}}
-	esp={{getv "/espcipher"}}
-	keyingtries=%forever
-	forceencaps={{getv "/forceudp" "yes"}}
-	lifetime={{getv "/lifetime" "3600"}}
-	ikelifetime={{getv "/ikelifetime" "10800"}}
-	reauth={{getv "/ikereauth" "yes"}}
 
 {{ if exists "/configs" }}
 {{ range gets "/configs/*" }}
 conn site-static-ip-{{ .Key }}
-	also=sts-base
+	fragmentation=yes
+	dpdaction=restart
+	ike={{ .Value.ikecipher }}
+	esp={{ .Value.espcipher }}
+	keyingtries=%forever
+	forceencaps={{ .Value.forceudp }}
+	lifetime={{ .Value.lifetime }}
+	ikelifetime={{ .Value.ikelifetime }}
+	reauth={{ .Value.ikereauth }}
 	keyexchange={{ .Value.keyexchange }}
 	leftsubnet={{ .Value.localnet }}
 	left={{ .Value.localip }}
@@ -58,7 +56,15 @@ conn site-static-ip-{{ .Key }}
 {{- end }}
 {{ else }}
 conn site-static-ip
-	also=sts-base
+	fragmentation=yes
+	dpdaction=restart
+	ike={{getv "/ikecipher"}}
+	esp={{getv "/espcipher"}}
+	keyingtries=%forever
+	forceencaps={{getv "/forceudp" "yes"}}
+	lifetime={{getv "/lifetime" "3600"}}
+	ikelifetime={{getv "/ikelifetime" "10800"}}
+	reauth={{getv "/ikereauth" "yes"}}
 	keyexchange={{getv "/keyexchange"}}
 	leftsubnet={{getv "/localnet"}}
 	left={{getv "/localip"}}
