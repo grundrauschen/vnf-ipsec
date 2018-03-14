@@ -17,5 +17,6 @@ keys = [
     "/lifetime",
     "/ikelifetime",
     "/ikereauth",
-    "/configs"
+    "/numconf",
+    "/configs/*"
 ]
