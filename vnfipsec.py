@@ -1,4 +1,4 @@
-#!/usr/env/python3
+#!/usr/bin/env python3
 import configuration
 from pathlib import Path
 
