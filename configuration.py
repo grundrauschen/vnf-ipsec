@@ -1,4 +1,5 @@
 import yaml
+import copy
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
 except ImportError:
@@ -34,6 +35,14 @@ class Configuration:
 
     def get(self):
         return self.v
+
+    def get_cleaned(self):
+        config = copy.deepcopy(self.v._config)
+        for name, values in config['ipsec']['secrets'].items():
+            if 'key' in values:
+                values['key'] = "*********"
+        return config
+
 
     def get_vnf(self):
         return self.configuration['vnf_ipsec']

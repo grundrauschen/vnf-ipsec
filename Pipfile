@@ -8,6 +8,7 @@ name = "pypi"
 pyyaml = "*"
 vyper = "*"
 vici = "*"
+python-json-logger = "*"
 
 [dev-packages]
 
