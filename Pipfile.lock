@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "b8f9c71ed0795880ed154b88efa5e93050d7a07537a7fad176959dc42a9a6b2d"
+            "sha256": "fdccdeac34c9b0312edb9e30dd9d1e52c0e37010ac554c92d126a4a4b63c93c6"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -96,6 +96,14 @@
                 "sha256:f66073e5506e91d204ab0c614a148d5aa938bdbf104751be66f8ad7a222f5f86"
             ],
             "version": "==1.35"
+        },
+        "vici": {
+            "hashes": [
+                "sha256:3208db19d4d9d78730d65b6d584ae382777b344c2e5749c567a4f1f2e727e63c",
+                "sha256:8e96dd5f8e1d84a7882a7405d6734210bac6083a823aeda6d9318438ad9bcbcb"
+            ],
+            "index": "pypi",
+            "version": "==5.5.3"
         },
         "vyper": {
             "hashes": [

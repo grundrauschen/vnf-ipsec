@@ -7,6 +7,7 @@ name = "pypi"
 "jinja2" = "*"
 pyyaml = "*"
 vyper = "*"
+vici = "*"
 
 [dev-packages]
 

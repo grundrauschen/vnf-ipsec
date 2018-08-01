@@ -9,13 +9,14 @@ import vyper
 
 
 class Configuration:
-    def __init__(self, configfile):
+    def __init__(self, configfile=None):
         self.v = vyper.Vyper()
         if configfile:
             self.v.set_config_file(configfile)
         else:
             path = Path(__file__).parent / Path('config')
             self.v.set_config_name('vnf_ipsec')
+            self.v.add_config_path(Path.cwd())
             self.v.add_config_path('/etc/vnfipsec')
             self.v.add_config_path(path)
         self.v.read_in_config()
